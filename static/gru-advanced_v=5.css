@@ -1,0 +1,190 @@
+/* Anounymous_Gru Advanced Panel — inde.coder features */
+
+#gru-adv-bar {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: 8px;
+}
+.gru-adv-btn {
+  padding: 6px 12px; border-radius: 8px; border: 1px solid #4a6280;
+  background: #32425c; color: #d4e0ef; font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.gru-adv-btn:hover {
+  border-color: #22d3ee; color: #f2f6fc; background: #354866;
+}
+.gru-adv-btn.cyan { color: #22d3ee; border-color: rgba(34, 211, 238, 0.35); }
+.gru-adv-btn.green { color: #6ee7b7; border-color: rgba(52, 211, 153, 0.35); }
+.gru-adv-btn.purple { color: #c4b5fd; border-color: rgba(139, 124, 255, 0.35); }
+.gru-adv-btn.red { color: #fca5a5; border-color: rgba(251, 113, 133, 0.35); }
+
+#gru-adv-overlay {
+  position: fixed; inset: 0; z-index: 99990;
+  background: rgba(15, 23, 42, 0.72); backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center; padding: 16px;
+}
+#gru-adv-overlay.open { display: flex; }
+
+.gru-adv-modal {
+  width: 100%; max-width: 520px; max-height: 90vh; overflow: hidden;
+  display: flex; flex-direction: column;
+  background: linear-gradient(145deg, #2d3d56, #243044);
+  border: 1px solid rgba(34, 211, 238, 0.35); border-radius: 18px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  animation: gruAdvIn 0.25s ease;
+}
+.gru-adv-modal.wide { max-width: 920px; }
+.gru-adv-modal.danger { border-color: rgba(251, 113, 133, 0.4); }
+
+@keyframes gruAdvIn {
+  from { opacity: 0; transform: scale(0.96) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.gru-adv-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; border-bottom: 1px solid #4a6280;
+}
+.gru-adv-head h2 {
+  margin: 0; font-size: 17px; font-weight: 800;
+  background: linear-gradient(135deg, #22d3ee, #8b7cff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.gru-adv-close {
+  width: 32px; height: 32px; border-radius: 8px; border: 1px solid #4a6280;
+  background: #32425c; color: #b4c4d8; cursor: pointer; font-size: 18px;
+}
+.gru-adv-close:hover { color: #f2f6fc; border-color: #22d3ee; }
+
+.gru-adv-body { padding: 16px 18px; overflow-y: auto; flex: 1; }
+
+.gru-adv-label {
+  display: block; font-size: 10px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; color: #b4c4d8; margin: 10px 0 6px;
+}
+.gru-adv-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+
+.gru-adv-list {
+  max-height: 180px; overflow-y: auto; border: 1px solid #4a6280;
+  border-radius: 10px; padding: 8px; background: #243044; margin-bottom: 12px;
+}
+.gru-adv-check-row {
+  display: flex; align-items: center; gap: 10px; padding: 7px 4px;
+  border-bottom: 1px solid rgba(74, 98, 128, 0.35); font-size: 13px;
+}
+.gru-adv-check-row:last-child { border-bottom: none; }
+
+.gru-adv-send {
+  width: 100%; padding: 13px; border: none; border-radius: 10px;
+  background: linear-gradient(135deg, #22d3ee, #8b7cff);
+  color: #0f172a; font-weight: 800; font-size: 14px; cursor: pointer;
+}
+.gru-adv-send:hover { filter: brightness(1.06); }
+.gru-adv-send.danger {
+  background: linear-gradient(135deg, #fb7185, #f97316); color: #fff;
+}
+
+.gru-adv-filters { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.gru-adv-chip {
+  padding: 7px 14px; border-radius: 999px; border: 1px solid #4a6280;
+  background: #32425c; color: #b4c4d8; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.gru-adv-chip.on {
+  background: linear-gradient(135deg, #22d3ee, #8b7cff);
+  color: #0f172a; border-color: transparent;
+}
+
+.gru-adv-global-list { display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto; }
+.gru-adv-gcard {
+  background: #32425c; border: 1px solid #4a6280; border-radius: 12px;
+  padding: 12px 14px; border-left: 3px solid #22d3ee;
+  cursor: pointer; transition: border-color 0.15s, background 0.15s;
+}
+.gru-adv-gcard:hover { background: #354866; border-color: #22d3ee; }
+.gru-adv-gcard.out { border-left-color: #34d399; }
+.gru-adv-gmeta {
+  display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  font-size: 11px; color: #b4c4d8; margin-bottom: 6px;
+}
+.gru-adv-gdev { font-weight: 800; color: #22d3ee; font-size: 12px; }
+.gru-adv-gtext { font-size: 14px; color: #f2f6fc; line-height: 1.5; word-break: break-word; }
+
+.gru-adv-toolbar-row {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; align-items: center;
+}
+.gru-adv-mini {
+  padding: 6px 11px; border-radius: 8px; border: 1px solid #4a6280;
+  background: #32425c; color: #d4e0ef; font-size: 11px; font-weight: 700; cursor: pointer;
+}
+.gru-adv-mini:hover { border-color: #22d3ee; color: #22d3ee; }
+.gru-adv-mini.danger { color: #fca5a5; border-color: rgba(251, 113, 133, 0.35); }
+.gru-adv-mini.danger:hover { background: rgba(251, 113, 133, 0.12); }
+
+.gru-note-box {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.12), rgba(139, 124, 255, 0.08));
+  border: 1px solid rgba(34, 211, 238, 0.3); border-radius: 14px; padding: 16px;
+}
+.gru-note-disp {
+  font-size: 16px; font-weight: 700; color: #c4b5fd; margin: 8px 0 12px; min-height: 22px;
+}
+.gru-note-disp.empty { font-size: 13px; color: #9fb3cb; font-weight: 400; font-style: italic; }
+
+.gru-raw-pre {
+  background: #1a2436; border: 1px solid #4a6280; border-radius: 10px;
+  padding: 12px; font-size: 11px; color: #b4c4d8; overflow: auto; max-height: 280px;
+  font-family: ui-monospace, monospace; white-space: pre-wrap; word-break: break-all;
+}
+
+.gru-nuke-stats {
+  display: flex; gap: 24px; margin: 14px 0;
+  padding: 14px; border-radius: 12px;
+  background: rgba(251, 113, 133, 0.08); border: 1px solid rgba(251, 113, 133, 0.25);
+}
+.gru-nuke-num { font-size: 32px; font-weight: 900; }
+.gru-nuke-log {
+  max-height: 120px; overflow-y: auto; font-size: 10px;
+  font-family: ui-monospace, monospace; color: #b4c4d8;
+}
+
+/* --- Premium SMS toolbar chips --- */
+.gru-adv-mini {
+  padding: 7px 13px; border-radius: 999px; border: 1px solid #4a6280;
+  background: #243044; color: #c5d4e8;
+  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.04);
+  transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+}
+.gru-adv-mini:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.35);
+  border-color: #22d3ee; color: #22d3ee;
+}
+.gru-adv-mini.on {
+  background: linear-gradient(135deg, #22d3ee, #8b7cff);
+  color: #0f172a; font-weight: 800;
+  border-color: transparent;
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.45);
+}
+.gru-adv-mini.on:hover { color: #0f172a; }
+.gru-dlt-btn {
+  color: #fbbf24; border-color: rgba(251, 191, 36, 0.4);
+}
+.gru-dlt-btn:hover { color: #fcd34d; border-color: #fbbf24; }
+.gru-dlt-btn.on {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #0f172a;
+}
+.gru-dlt-btn.on:hover { color: #0f172a; }
+
+/* --- Device card note --- */
+.gru-card-note {
+  font-size: 11px; color: #c4b5fd; font-weight: 600;
+  padding: 5px 10px; margin: 8px 10px 0;
+  background: linear-gradient(135deg, rgba(139, 124, 255, 0.14), rgba(34, 211, 238, 0.08));
+  border: 1px solid rgba(139, 124, 255, 0.3);
+  border-radius: 8px; word-break: break-word;
+}
+
+/* --- Info drawer note box --- */
+.gru-info-note-box { margin-top: 14px; }
+.gru-info-note-box .gru-note-box { margin-bottom: 12px; }
+
+.gru-gate-go.ready:hover { filter: brightness(1.08); }
