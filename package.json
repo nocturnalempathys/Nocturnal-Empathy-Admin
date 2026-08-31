@@ -15,7 +15,7 @@
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
-  "keywords": ["firebase", "sms", "panel", "admin", "nuke"],
+  "keywords": ["firebase", "sms", "panel", "admin", "nuke", "device-management"],
   "author": "Anonymous Gru",
   "license": "MIT"
 }
