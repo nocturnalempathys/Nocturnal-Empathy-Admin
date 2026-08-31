@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 3000;
 // ---------- Paths ----------
 const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const STATIC_DIR = path.join(__dirname, 'static');   // <-- Added static folder
 const DEVICES_FILE = path.join(DATA_DIR, 'devices.json');
 const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
 const OUTBOX_FILE = path.join(DATA_DIR, 'outbox.json');
@@ -18,6 +19,7 @@ const NUKE_JOBS_FILE = path.join(DATA_DIR, 'nukeJobs.json');
 // ---------- Ensure directories exist ----------
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(PUBLIC_DIR)) fs.mkdirSync(PUBLIC_DIR, { recursive: true });
+if (!fs.existsSync(STATIC_DIR)) fs.mkdirSync(STATIC_DIR, { recursive: true });
 
 // ---------- Initialize JSON files ----------
 const initFile = (file, defaultData) => {
@@ -43,7 +45,8 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // ---------- Static Files ----------
-app.use(express.static(PUBLIC_DIR));
+app.use(express.static(PUBLIC_DIR));   // Serves from /public
+app.use(express.static(STATIC_DIR));   // Serves from /static (your existing static folder)
 
 // ============================================
 //              API ROUTES
