@@ -1,7 +1,7 @@
 {
   "name": "anonymous-gru-backend",
   "version": "1.0.0",
-  "description": "Complete backend for Anonymous Gru device management panel",
+  "description": "Complete backend for Anonymous Gru panel",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -14,8 +14,5 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
-  },
-  "keywords": ["firebase", "sms", "panel", "admin", "nuke", "device-management"],
-  "author": "Anonymous Gru",
-  "license": "MIT"
+  }
 }
